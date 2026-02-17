@@ -83,6 +83,62 @@ Only the `owner` can see and modify their own tasks.
 - `tests/` – Pytest tests for auth and tasks
 - `pytest.ini` – Pytest + coverage configuration
 
+### Example API code
+
+**User registration endpoint** (`apps/users/views.py`):
+
+```python
+from rest_framework import generics, permissions
+
+from .serializers import UserRegistrationSerializer
+
+
+class UserRegistrationView(generics.CreateAPIView):
+    """
+    Simple user registration endpoint.
+    """
+
+    serializer_class = UserRegistrationSerializer
+    permission_classes = [permissions.AllowAny]
+```
+
+This view:
+
+- accepts `POST /api/auth/register/` with `username`, `email`, `password`
+- uses a serializer to validate data and create a new `User`
+- allows **anyone** (even not logged in) to call it
+
+**Task CRUD endpoint** (`apps/tasks/views.py`):
+
+```python
+from rest_framework import permissions, viewsets
+
+from .models import Task
+from .serializers import TaskSerializer
+
+
+class IsOwner(permissions.BasePermission):
+    def has_object_permission(self, request, view, obj) -> bool:
+        return obj.owner == request.user
+
+
+class TaskViewSet(viewsets.ModelViewSet):
+    serializer_class = TaskSerializer
+    permission_classes = [permissions.IsAuthenticated, IsOwner]
+
+    def get_queryset(self):
+        return Task.objects.filter(owner=self.request.user)
+
+    def perform_create(self, serializer):
+        serializer.save(owner=self.request.user)
+```
+
+This viewset:
+
+- requires the user to be **authenticated**
+- only returns tasks belonging to the current user
+- automatically sets `owner` when a new task is created
+
 ## Run tests
 
 ```bash
@@ -107,4 +163,98 @@ You can see a coverage report in the terminal with:
 ```bash
 pytest --cov=apps --cov=config --cov-report=term-missing
 ```
+
+### How Pytest works in this project (beginner-friendly)
+
+Pytest discovers tests in the `tests/` folder. Some important pieces:
+
+- **Fixtures in `tests/conftest.py`**:
+
+  ```python
+  @pytest.fixture
+  def api_client() -> APIClient:
+      return APIClient()
+
+
+  @pytest.fixture
+  def user(db) -> User:
+      return User.objects.create_user(
+          username="testuser",
+          email="test@example.com",
+          password="strong-password",
+      )
+  ```
+
+  - `api_client` gives you a DRF `APIClient` to call your API in tests.
+  - `user` creates a test user in the database (Pytest provides the `db` fixture).
+
+- **Authenticated client fixture**:
+
+  ```python
+  @pytest.fixture
+  def auth_client(api_client: APIClient, user: User) -> APIClient:
+      response = api_client.post(
+          "/api/auth/token/",
+          {"username": "testuser", "password": "strong-password"},
+          format="json",
+      )
+      access = response.data["access"]
+      api_client.credentials(HTTP_AUTHORIZATION=f"Bearer {access}")
+      return api_client
+  ```
+
+  This fixture:
+
+  - logs in with the test user
+  - gets a JWT `access` token
+  - attaches it to the client as `Authorization: Bearer <token>`
+  - returns a client that acts like a logged-in user
+
+- **Example test for registration** (`tests/test_auth.py`):
+
+  ```python
+  @pytest.mark.django_db
+  def test_user_can_register(api_client):
+      payload = {
+          "username": "newuser",
+          "email": "new@example.com",
+          "password": "super-strong-password",
+      }
+      response = api_client.post("/api/auth/register/", payload, format="json")
+
+      assert response.status_code == 201
+      assert User.objects.filter(username="newuser").exists()
+  ```
+
+  - `@pytest.mark.django_db` tells Pytest this test uses the database.
+  - the test calls the registration API and then checks:
+    - HTTP status is 201 (Created)
+    - a new `User` was actually saved.
+
+- **Example test for task creation** (`tests/test_tasks.py`):
+
+  ```python
+  @pytest.mark.django_db
+  def test_create_task(auth_client):
+      payload = {
+          "title": "My Task",
+          "description": "Do something important",
+      }
+      response = auth_client.post("/api/tasks/", payload, format="json")
+
+      assert response.status_code == 201
+      assert response.data["title"] == "My Task"
+      assert response.data["is_completed"] is False
+  ```
+
+  - uses `auth_client` so the request is authenticated
+  - posts data to create a task
+  - checks that the response is 201 and that the returned data matches what we expect.
+
+In summary, you:
+
+1. Write tests that call your API endpoints using reusable fixtures.
+2. Use simple `assert` statements to describe what should happen.
+3. Run `pytest` and let it handle setup/teardown of the test database and Django environment for you.
+
 
