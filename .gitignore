@@ -1,0 +1,42 @@
+# Python / Django
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Virtual environments
+.venv/
+venv/
+ENV/
+env/
+
+# Django artifacts
+db.sqlite3
+*.sqlite3
+local_settings.py
+*.log
+.env
+
+# Migrations (keep these if you want them versioned; common to keep them)
+# **/migrations/*.py
+# !**/migrations/__init__.py
+
+# Testing / coverage
+.pytest_cache/
+.coverage
+coverage.xml
+htmlcov/
+.hypothesis/
+
+# Build / packaging
+build/
+dist/
+*.egg-info/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
