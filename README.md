@@ -83,6 +83,34 @@ Only the `owner` can see and modify their own tasks.
 - `tests/` – Pytest tests for auth and tasks
 - `pytest.ini` – Pytest + coverage configuration
 
+### API schema & Postman / Swagger
+
+This project uses **drf-spectacular** to auto-generate an OpenAPI (Swagger) schema.
+
+When the server is running:
+
+- **Raw OpenAPI schema (JSON)**:  
+  `GET http://127.0.0.1:8000/api/schema/`
+- **Interactive Swagger UI docs**:  
+  `GET http://127.0.0.1:8000/api/docs/`
+
+You can use these in two ways:
+
+- **For Postman**:
+  - Open Postman → **Import**
+  - Choose **Link**
+  - Paste: `http://127.0.0.1:8000/api/schema/`
+  - Postman will create a collection with all endpoints.
+
+- **To generate a `swagger.json` file (optional)**:
+  - With your virtualenv active:
+
+    ```bash
+    python manage.py spectacular --format openapi-json --file swagger.json
+    ```
+
+  - This writes a `swagger.json` file based on your current API code.
+
 ### Example API code
 
 **User registration endpoint** (`apps/users/views.py`):
